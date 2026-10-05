@@ -16,6 +16,7 @@ import { Product } from '../products/product.entity';
 import { Sale } from './sale.entity';
 
 import { SaleItem } from './sale-item.entity';
+import { StockMovement } from '../stock-movements/stock-movement.entity';
 
 @Injectable()
 export class SalesService {
@@ -82,21 +83,18 @@ export class SalesService {
               },
             });
 
-          // Product not found
           if (!product) {
             throw new NotFoundException(
               `Product ${item.productId} not found`,
             );
           }
 
-          // Invalid quantity
           if (item.quantity <= 0) {
             throw new BadRequestException(
               'Quantity must be greater than 0',
             );
           }
 
-          // Insufficient stock
           if (
             product.stock <
             item.quantity
@@ -129,7 +127,6 @@ export class SalesService {
             totalSellingAmount -
             itemPurchaseCost;
 
-          // Add to sale totals
           totalAmount +=
             totalSellingAmount;
 
@@ -242,8 +239,6 @@ export class SalesService {
                 totalSellingAmount:
                   itemData.totalSellingAmount,
 
-                // IMPORTANT:
-                // Fixed purchase cost field
                 totalPurchaseCost:
                   itemData.totalPurchaseCost,
 
@@ -260,6 +255,7 @@ export class SalesService {
 
         // =================================================
         // 7. DECREASE PRODUCT STOCK
+        //    + SAVE SALE MOVEMENT
         // =================================================
 
         for (
@@ -285,6 +281,49 @@ export class SalesService {
           await manager.save(
             Product,
             product,
+          );
+
+          const stockMovement =
+            manager.create(StockMovement, {
+              productId:
+                itemData.productId,
+
+              productName:
+                itemData.productName,
+
+              productCode:
+                itemData.productCode,
+
+              type:
+                'SALE',
+
+              quantity:
+                -Number(
+                  itemData.quantity,
+                ),
+
+              purchasePrice:
+                itemData.purchasePrice,
+
+              totalPurchaseCost:
+                itemData.totalPurchaseCost,
+
+              supplier:
+                null,
+
+              reason:
+                `Sale ${savedSale.invoiceNumber}`,
+
+              referenceType:
+                'SALE',
+
+              referenceId:
+                savedSale.id,
+            });
+
+          await manager.save(
+            StockMovement,
+            stockMovement,
           );
         }
 
@@ -383,28 +422,35 @@ export class SalesService {
           'sale.createdAt',
         ])
 
-        // Total quantity sold in this sale
         .addSelect(
           'COALESCE(SUM(item.quantity), 0)',
           'itemsCount',
         )
 
-        .groupBy('sale.id')
+        .groupBy(
+          'sale.id',
+        )
+
         .addGroupBy(
           'sale.invoiceNumber',
         )
+
         .addGroupBy(
           'sale.totalAmount',
         )
+
         .addGroupBy(
           'sale.totalPurchaseCost',
         )
+
         .addGroupBy(
           'sale.grossProfit',
         )
+
         .addGroupBy(
           'sale.paymentMethod',
         )
+
         .addGroupBy(
           'sale.createdAt',
         )
@@ -416,14 +462,12 @@ export class SalesService {
 
         .getRawMany();
 
-    // ===================================================
-    // FORMAT RESPONSE
-    // ===================================================
-
     return sales.map(
       (sale) => ({
         id:
-          Number(sale.sale_id),
+          Number(
+            sale.sale_id,
+          ),
 
         invoiceNumber:
           sale.sale_invoiceNumber,
@@ -461,7 +505,9 @@ export class SalesService {
   // GET SINGLE SALE
   // =====================================================
 
-  async getSaleById(id: number) {
+  async getSaleById(
+    id: number,
+  ) {
     const sale =
       await this.saleRepository.findOne({
         where: {
@@ -484,7 +530,6 @@ export class SalesService {
 
     return {
       sale,
-
       items,
     };
   }

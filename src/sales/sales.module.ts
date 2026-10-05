@@ -5,6 +5,7 @@ import { Product } from '../products/product.entity';
 
 import { Sale } from './sale.entity';
 import { SaleItem } from './sale-item.entity';
+import { StockMovement } from '../stock-movements/stock-movement.entity';
 
 import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
@@ -15,6 +16,7 @@ import { SalesService } from './sales.service';
       Sale,
       SaleItem,
       Product,
+      StockMovement,
     ]),
   ],
   controllers: [SalesController],
